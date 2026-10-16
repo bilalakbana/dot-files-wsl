@@ -1,0 +1,64 @@
+#!/bin/bash
+# Ctrl+F in tmux (every pane, ~/.tmux.conf): search a pane's whole history in a popup.
+#   - a pane running Claude Code: its whole chat with the Markdown drawn (claude-chat-text.py),
+#     which Claude's fullscreen view keeps out of tmux's history
+#   - any other pane: everything tmux holds for it, history and screen, in its own colours
+# Query bar on top (words narrow the list, case-insensitive), the matching lines below it, and the
+# text around the selected line in the preview. Up/Down or the mouse move, Alt+Up/Down page the
+# preview, Esc closes. Catppuccin Macchiato colours.
+# The text goes to one file per pane under $XDG_RUNTIME_DIR (RAM, emptied at logout), rewritten on
+# every Ctrl+F.
+# Usage: history-search <pane-id>
+set -euo pipefail
+
+pane=${1:?usage: history-search <pane-id>}
+out_dir="${XDG_RUNTIME_DIR:?XDG_RUNTIME_DIR is not set}/tmux-history-search"
+mkdir -p -- "$out_dir"
+
+file=""
+label=""
+note=""
+if [[ $(tmux display -p -t "$pane" '#{pane_current_command}') == claude ]]; then
+  if file=$(python3 -I ~/.config/tmux/claude-chat-text.py "$pane" "$out_dir" 2>"$out_dir/error"); then
+    label="Claude chat"
+  else
+    file=""
+    note="(Claude chat not found: $(cat "$out_dir/error"); showing what tmux holds for this pane)"
+  fi
+fi
+
+if [[ -z $file ]]; then
+  file="$out_dir/pane-$(tmux display -p -t "$pane" '#{session_name}-#{window_index}-#{pane_index}').txt"
+  {
+    [[ -n $note ]] && printf '%s\n\n' "$note"
+    tmux capture-pane -p -e -J -S - -t "$pane" | sed 's/[[:space:]]*$//'
+  } > "$file"
+  label="pane history"
+fi
+
+# fzf lists "<line number><TAB><line>" for every line with text and shows only the line; the
+# preview shows the whole file, scrolled so the selected line sits in the middle, on a highlight
+# (Catppuccin surface0) kept through the line's own colour resets.
+export HISTORY_FILE=$file
+export HIGHLIGHT_LINE='NR == n { gsub(/\033\[0m/, "&\033[48;2;54;58;79m"); printf "\033[48;2;54;58;79m%s\033[0m\n", $0; next } { print }'
+rc=0
+FZF_DEFAULT_COMMAND='awk "NF { print NR \"\t\" \$0 }" "$HISTORY_FILE"' \
+fzf --ansi --exact -i --no-sort --layout=reverse \
+    --delimiter '\t' --with-nth '2..' \
+    --border rounded --border-label " $label " --prompt '  ' --pointer '❯' --info inline-right \
+    --color 'bg+:#363a4f,bg:#24273a,spinner:#f4dbd6,hl:#ed8796,fg:#cad3f5,header:#ed8796' \
+    --color 'info:#c6a0f6,pointer:#f4dbd6,marker:#b7bdf8,fg+:#cad3f5,prompt:#c6a0f6,hl+:#ed8796' \
+    --color 'selected-bg:#494d64,border:#6e738d,label:#cad3f5,preview-border:#494d64' \
+    --highlight-line \
+    --preview 'awk -v n={1} "$HIGHLIGHT_LINE" "$HISTORY_FILE"' \
+    --preview-window 'down,65%,wrap,border-top,+{1}/2' \
+    --bind 'load:last' \
+    --bind 'alt-up:preview-page-up,alt-down:preview-page-down' \
+    || rc=$?
+
+# Esc (130) and Enter on an empty list (1) are ordinary ways out: a non-zero exit would make tmux
+# show a "returned 130" message that takes another key press to close
+case $rc in
+  0 | 1 | 130) exit 0 ;;
+  *) exit "$rc" ;;
+esac
