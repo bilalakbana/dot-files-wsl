@@ -15,9 +15,6 @@ font-size = 13
 adjust-cell-height = 15%
 theme = "Catppuccin Macchiato"
 background-opacity = 0.85
-# Also to cells that paint their own background (Claude Code's sidebar and message boxes, tmux's
-# status bar, Neovim): without this they stay fully opaque on top of the see-through window
-background-opacity-cells = true
 cursor-style = bar
 cursor-style-blink = true
 adjust-cursor-thickness = 2
