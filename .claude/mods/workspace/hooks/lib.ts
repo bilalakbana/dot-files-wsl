@@ -185,6 +185,16 @@ export function gitCodeColor(code: string): string {
   return COLOR.yellow
 }
 
+/**
+ * Text from the disk or from git (file names, paths, the branch, error messages) as it can be drawn:
+ * each control character becomes U+FFFD. The engine refuses a whole tree whose text holds one (a
+ * file named with an escape sequence would make the pane disappear), so only what is drawn goes
+ * through here; clicks keep acting on the real path.
+ */
+export function printable(text: string): string {
+  return text.replace(/[\u0000-\u001f\u007f-\u009f]/g, '�')
+}
+
 /** $HOME/x -> ~/x */
 export function tildePath(path: string, home: string | undefined): string {
   if (home === undefined || home === '' || home === '/') return path

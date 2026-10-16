@@ -19,6 +19,7 @@ import {
   parseGitStatus,
   parseShared,
   pickLimits,
+  printable,
   settingsEffort,
   SNAPSHOT_SCHEMA,
   sortEntries,
@@ -340,11 +341,11 @@ export const register: Register = on => {
     return (
       <Box flexDirection="column">
         {snap.errors.map(err => (
-          <Text color={COLOR.red}>{err}</Text>
+          <Text color={COLOR.red}>{printable(err)}</Text>
         ))}
 
         <Text color={COLOR.mauve} weight="bold">Directory</Text>
-        <Text wrap="truncate-start">{snap.cwdLabel}</Text>
+        <Text wrap="truncate-start">{printable(snap.cwdLabel)}</Text>
 
         <Box marginTop={1} flexDirection="column">
           <Text color={COLOR.mauve} weight="bold">Model</Text>
@@ -392,7 +393,7 @@ export const register: Register = on => {
             <Text dimColor>not a git repository</Text>
           ) : (
             <Text wrap="truncate-end">
-              <Text color={COLOR.blue}>{git.branch}</Text>
+              <Text color={COLOR.blue}>{printable(git.branch)}</Text>
               {git.ahead > 0 ? ` ↑${git.ahead}` : ''}
               {git.behind > 0 ? ` ↓${git.behind}` : ''}
               {git.total === 0 ? (
@@ -406,7 +407,7 @@ export const register: Register = on => {
             const target = file.mention
             const row = (
               <Text wrap="truncate-middle">
-                <Text color={gitCodeColor(file.code)}>{file.code}</Text> {file.path}
+                <Text color={gitCodeColor(file.code)}>{printable(file.code)}</Text> {printable(file.path)}
               </Text>
             )
             return target === null ? (
@@ -429,7 +430,7 @@ export const register: Register = on => {
               return (
                 <Text dimColor wrap="truncate-end">
                   {indent(row.depth)}
-                  {row.name}
+                  {printable(row.name)}
                 </Text>
               )
             }
@@ -439,7 +440,7 @@ export const register: Register = on => {
                   <Text color={COLOR.blue} wrap="truncate-end">
                     {indent(row.depth)}
                     {row.isOpen ? '▾ ' : '▸ '}
-                    {row.name}/
+                    {printable(row.name)}/
                   </Text>
                 </Button>
               )
@@ -449,7 +450,7 @@ export const register: Register = on => {
                 <Text color={COLOR.text} wrap="truncate-end">
                   {indent(row.depth)}
                   {'  '}
-                  {row.name}
+                  {printable(row.name)}
                 </Text>
               </Button>
             )
