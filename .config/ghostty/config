@@ -24,8 +24,9 @@ mouse-hide-while-typing = true
 maximize = true
 window-decoration = none
 window-padding-balance = true
-# The leftover pixels around the cell grid take the colour of the nearest row, so tmux's status bar
-# reaches the window's bottom edge (not a strip of background below it)
+# The leftover pixels around the cell grid take the colour of the nearest cells (e.g. Claude Code's
+# sidebar reaches the right edge). A top or bottom row with any default-background cell is not extended,
+# which is why tmux's status bar uses bg=default (~/.tmux.conf): it stays exactly one row high
 window-padding-color = extend
 window-save-state = always
 gtk-tabs-location = hidden
