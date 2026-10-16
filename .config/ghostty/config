@@ -1,0 +1,50 @@
+# Ghostty config (Ghostty inside WSL, shown on Windows through WSLg).
+# Reference: https://ghostty.org/docs/config/reference. Reload: Ctrl+Shift+, (or open a new window).
+
+# ── Shell ────────────────────────────────────────────────────────────────────
+# zsh starts tmux itself (~/.zshrc). z4h marks prompts on its own, so Ghostty's shell
+# integration stays off (tmux sits in between and would get its marks twice).
+command = /usr/bin/zsh
+shell-integration = none
+term = xterm-256color
+
+# ── Look: Intel One Mono + Catppuccin Macchiato ───────────────────────────────
+# Nerd Font icons (prompt, lsd) come from Ghostty's built-in symbol font.
+font-family = "Intel One Mono"
+font-size = 13
+adjust-cell-height = 15%
+theme = "Catppuccin Macchiato"
+background-opacity = 1
+cursor-style = bar
+cursor-style-blink = true
+adjust-cursor-thickness = 2
+mouse-hide-while-typing = true
+
+# ── Window ───────────────────────────────────────────────────────────────────
+maximize = true
+window-decoration = none
+window-padding-balance = true
+# The leftover pixels around the cell grid take the colour of the nearest row, so tmux's status bar
+# reaches the window's bottom edge (not a strip of background below it)
+window-padding-color = extend
+window-save-state = always
+gtk-tabs-location = hidden
+confirm-close-surface = false
+resize-overlay = never
+app-notifications = no-clipboard-copy
+scrollback-limit = 4294967295
+
+# ── Keys: hand these to tmux ─────────────────────────────────────────────────
+keybind = ctrl+shift+left=unbind
+keybind = ctrl+shift+right=unbind
+keybind = ctrl+shift+up=unbind
+keybind = ctrl+shift+down=unbind
+keybind = shift+page_up=unbind
+keybind = shift+page_down=unbind
+keybind = ctrl+page_up=unbind
+keybind = ctrl+page_down=unbind
+keybind = ctrl+shift+n=unbind
+# Ghostty's own search only sees the visible screen inside tmux: search with Ctrl+F (tmux) instead,
+# and let Ctrl+Shift+F reach tmux (split below).
+keybind = ctrl+shift+f=unbind
+keybind = ctrl+shift+o=toggle_tab_overview
