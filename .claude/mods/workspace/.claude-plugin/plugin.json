@@ -1,0 +1,7 @@
+{
+  "name": "workspace",
+  "version": "0.1.0",
+  "author": { "name": "Bilal" },
+  "description": "Side pane in fullscreen Claude Code: context usage, git status and the folder tree of the session's directory",
+  "types": "./types/index.d.ts"
+}

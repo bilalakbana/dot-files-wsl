@@ -1,0 +1,30 @@
+{
+  "name": "Catppuccin Macchiato",
+  "base": "dark",
+  "overrides": {
+    "composerSidebarBackground": "#24273a",
+    "userMessageBackground": "#363a4f",
+    "userMessageBackgroundHover": "#494d64",
+    "bashMessageBackgroundColor": "#363a4f",
+    "memoryBackgroundColor": "#363a4f",
+    "selectionBg": "#5b6078",
+
+    "text": "#cad3f5",
+    "inverseText": "#24273a",
+    "inactive": "#8087a2",
+    "subtle": "#5b6078",
+    "suggestion": "#b7bdf8",
+    "permission": "#8aadf4",
+    "remember": "#8aadf4",
+    "claude": "#f5a97f",
+
+    "success": "#a6da95",
+    "error": "#ed8796",
+    "warning": "#eed49f",
+
+    "promptBorder": "#6e738d",
+    "planMode": "#8bd5ca",
+    "autoAccept": "#c6a0f6",
+    "bashBorder": "#f5bde6"
+  }
+}
