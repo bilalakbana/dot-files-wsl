@@ -1,0 +1,5 @@
+{
+  "name": "bilal-mods",
+  "owner": { "name": "Bilal" },
+  "plugins": [{ "name": "workspace", "source": "./workspace" }]
+}

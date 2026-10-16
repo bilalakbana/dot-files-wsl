@@ -3,7 +3,9 @@
 Terminal setup for **Ubuntu 26.04 LTS on WSL**: Ghostty (inside WSL, shown on Windows through WSLg),
 zsh + zsh4humans + powerlevel10k, tmux, Neovim + LazyVim, and the search tools behind
 [search-functions](https://github.com/bilalakbana/search-functions) (ugrep built from source with every
-archive format, ripgrep, ripgrep-all, fzf, fd, bat, delta, ...), with Intel One Mono as the terminal font.
+archive format, ripgrep, ripgrep-all, fzf, fd, bat, delta, ...), with Intel One Mono as the terminal font,
+plus Claude Code's look and extras: fullscreen UI, the Catppuccin theme, the *workspace* side pane (a mod),
+the official plugins and a `format` skill.
 
 The steps below are written so that **Claude Code running inside WSL** can carry them out. A person can
 follow them just as well.
@@ -15,7 +17,7 @@ follow them just as well.
 - Do the steps in order and run each step's **Check** before going on. If a check fails, stop and report
   the command, its output and what you think is wrong. Do not work around a failure silently.
 - **Never delete anything.** When a file or folder that would be replaced already exists, rename it to
-  `<name>.bak-<date>` (the commands below do this) and tell the user.
+  `<name>.bak-<date>-<time>` (the commands below do this) and tell the user.
 - **sudo needs the user's password, which you cannot type.** Every `sudo` command is grouped in a block
   marked **(user runs)**: ask the user to run that block themselves by typing it after `!` in the Claude
   Code prompt (`! sudo apt install ...`), then continue with the check.
@@ -150,7 +152,7 @@ the terminal; install them only if the user asks.
 ## 8. The dotfiles
 
 Clone this repo to `~/.dot-files` and link its files into the home folder. An existing file in the way is
-renamed to `<name>.bak-<date>`; an existing link is left alone and reported.
+renamed to `<name>.bak-<date>-<time>`; an existing link is left alone and reported.
 
 ```bash
 [ -d ~/.dot-files ] || git clone https://github.com/bilalakbana/dot-files-wsl.git ~/.dot-files
@@ -164,7 +166,7 @@ for f in .zshenv .zshrc .p10k.zsh .tmux.conf \
     [ "$(readlink "$f")" = "$HOME/.dot-files/$f" ] || echo "a different link, left alone: $f -> $(readlink "$f")"
     continue
   fi
-  if [ -e "$f" ]; then mv -- "$f" "$f.bak-$(date +%F)" && echo "backed up: $f.bak-$(date +%F)"; fi
+  if [ -e "$f" ]; then b="$f.bak-$(date +%F-%H%M%S)"; mv -- "$f" "$b" && echo "backed up: $b"; fi
   ln -s "$HOME/.dot-files/$f" "$f"
 done
 grep -q 'config/shell/env.sh' ~/.bashrc || printf '\n# Shared with zsh: PATH/exports and aliases\n. ~/.config/shell/env.sh\n. ~/.config/shell/aliases.sh\n' >> ~/.bashrc
@@ -205,7 +207,7 @@ shell). On its first start zsh4humans downloads its plugins and powerlevel10k; t
 The PC uses the unchanged LazyVim starter (no extras).
 
 ```bash
-[ -e ~/.config/nvim ] && mv ~/.config/nvim ~/.config/nvim.bak-$(date +%F)
+[ -e ~/.config/nvim ] && mv ~/.config/nvim ~/.config/nvim.bak-$(date +%F-%H%M%S)
 git clone https://github.com/LazyVim/starter ~/.config/nvim
 nvim --headless "+Lazy! sync" +qa
 ```
@@ -213,7 +215,59 @@ nvim --headless "+Lazy! sync" +qa
 **Check:** `nvim --headless "+checkhealth lazyvim" "+w! /tmp/lazyvim-health.txt" +qa` and read the file:
 there must be no `ERROR` lines (warnings about optional tools are fine).
 
-## 12. WSL notes
+## 12. Claude Code: theme, workspace pane, plugins, skill
+
+The side pane (context, limits, git status, folder tree) is the *workspace* mod in `.claude/mods`, a
+folder marketplace called `bilal-mods`; Claude Code reads it straight from that folder. It needs the
+fullscreen UI. Link the mod folder, the theme and the skill into `~/.claude` (same rules as step 8):
+
+```bash
+mkdir -p ~/.claude/themes ~/.claude/skills
+cd ~
+for f in .claude/mods .claude/themes/catppuccin-macchiato.json .claude/skills/format; do
+  if [ -L "$f" ]; then
+    [ "$(readlink "$f")" = "$HOME/.dot-files/$f" ] || echo "a different link, left alone: $f -> $(readlink "$f")"
+    continue
+  fi
+  if [ -e "$f" ]; then b="$f.bak-$(date +%F-%H%M%S)"; mv -- "$f" "$b" && echo "backed up: $b"; fi
+  ln -s "$HOME/.dot-files/$f" "$f"
+done
+```
+
+Fullscreen UI and the theme in `~/.claude/settings.json`, every other key kept (a dated copy is made
+first):
+
+```bash
+f=~/.claude/settings.json
+[ -f "$f" ] || echo '{}' > "$f"
+cp -- "$f" "$f.bak-$(date +%F-%H%M%S)"
+jq '.tui = "fullscreen" | .theme = "custom:catppuccin-macchiato"' "$f" > "$f.new" && mv -- "$f.new" "$f"
+```
+
+Plugins. A fresh Claude Code knows only its built-in directory, so the official marketplace is added first
+(if it says the marketplace already exists, go on):
+
+```bash
+claude plugin marketplace add anthropics/claude-plugins-official
+claude plugin marketplace add ~/.claude/mods
+for p in superpowers context7 claude-code-setup playground security-guidance pyright-lsp frontend-design; do
+  claude plugin install "$p@claude-plugins-official" --scope user
+done
+claude plugin install workspace@bilal-mods --scope user
+```
+
+`pyright-lsp` only works once `pyright-langserver` is on PATH (`sudo npm install -g pyright`); it is not
+installed on the Linux PC either, so ask the user before installing it.
+
+**Check:** `claude plugin list` shows the eight plugins enabled, `workspace@bilal-mods` with
+`Read from: /home/<user>/.claude/mods/workspace`, and `jq '{tui, theme}' ~/.claude/settings.json` shows
+`fullscreen` and `custom:catppuccin-macchiato`. Then ask the user to quit Claude Code and start it again
+(the UI mode and the theme apply to new sessions): the Catppuccin colours show, and the pane opens on its
+own in a window at least 144 columns wide, or with `/workspace` at any width. In the pane, a text file
+opens read-only in nvim in a tmux popup; any other file opens in its Windows default app (through
+`~/.SearchFunctions/sub-functions/windows_action`).
+
+## 13. WSL notes
 
 - **systemd:** `~/.zshrc` starts the tmux server in its own systemd scope when a systemd user session
   exists (`systemctl --user show-environment` succeeds) and without it otherwise; both work.
