@@ -13,6 +13,7 @@ import {
   parseGitStatus,
   parseShared,
   pickLimits,
+  printable,
   settingsEffort,
   sortEntries,
   tildePath,
@@ -122,6 +123,13 @@ describe('formatting', () => {
     expect(tildePath('/home/bilalx/a', '/home/bilal')).toBe('/home/bilalx/a')
     expect(tildePath('/etc', '/home/bilal')).toBe('/etc')
     expect(tildePath('/etc', undefined)).toBe('/etc')
+  })
+
+  test('printable replaces C0, DEL and C1 control characters, nothing else', async () => {
+    expect(printable('a\u001b[31mb\u0007c\u007fd\u009be')).toBe('a�[31mb�c�d�e')
+    expect(printable('tab\there\nnewline')).toBe('tab�here�newline')
+    expect(printable('çşğ İÖ 名前 ✓')).toBe('çşğ İÖ 名前 ✓')
+    expect(printable('')).toBe('')
   })
 
   test('sortEntries puts directories first', async () => {

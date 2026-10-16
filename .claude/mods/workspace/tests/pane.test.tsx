@@ -115,6 +115,40 @@ test('a folder click opens and closes it', async ($, on) => {
   await ui.unmount()
 })
 
+// Names come from the disk and from git: a file named with an escape sequence must not reach the
+// terminal as one. It is drawn with U+FFFD in place of each control character, while a click still
+// acts on the real path.
+test('control characters in names, paths, the branch and errors are not drawn', async ($, on) => {
+  const esc = '\u001b]52;c;cHduZWQ=\u0007'   // OSC 52: would write to the clipboard
+  const evil: WorkspaceSnapshot = {
+    ...SNAP,
+    cwdLabel: `~/Projects/${esc}app`,
+    git: { ...SNAP.git!, branch: `main${esc}`, files: [{ code: ' M', path: `src/${esc}x.ts`, mention: `src/${esc}x.ts` }], total: 1 },
+    tree: [{ depth: 0, name: `bad${esc}.txt`, path: `bad${esc}.txt`, kind: 'file', isOpen: false }],
+    errors: [`files: ${esc}boom`],
+  }
+  const ran: (readonly string[])[] = []
+  on('state.get', ($, e, next) =>
+    e.plugin === 'workspace' && e.key === 'snapshot' ? { value: { value: evil, version: 1 } } : next(e),
+  )
+  on('process.run', ($, e) => {
+    ran.push(e.argv)
+    return { value: { exitCode: 0, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
+  })
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({ ...PANE, surface })
+    expect(await ui.find({ type: 'Text', text: /[\u0000-\u001f\u007f-\u009f]/ })).toBeUndefined()
+    expect(await ui.find({ type: 'Text', text: /bad�\]52;c;cHduZWQ=�\.txt/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /main�/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /�boom/ })).toBeDefined()
+    await ui.unmount()
+  }
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.press({ key: `f:bad${esc}.txt` })
+  expect(ran[0]?.[ran[0].length - 1]).toBe(`/home/bilal/Projects/app/bad${esc}.txt`)
+  await ui.unmount()
+})
+
 test('the pane says it is reading before the first snapshot', async $ => {
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect(await ui.find({ type: 'Text', text: /Reading/ })).toBeDefined()
