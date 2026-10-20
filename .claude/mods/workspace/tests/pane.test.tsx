@@ -1,4 +1,4 @@
-import { expect, test } from 'claude-code/testing'
+import { expect, mock, test } from 'claude-code/testing'
 
 import { SNAPSHOT_SCHEMA } from '../hooks/lib'
 import type { WorkspaceSnapshot } from '../types'
@@ -182,4 +182,55 @@ test('after a good snapshot, one of an older shape keeps the good one on screen'
   const second = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect(await second.find({ type: 'Text', text: /42%/ })).toBeDefined()
   await second.unmount()
+})
+
+// A session in a folder that is no git repository: an empty folder says so under Files, and a folder
+// click is read again by the session's own 1-second timer (a click's $ can be aborted under it).
+test('an empty folder says so, at the top and in an opened folder', async ($, on) => {
+  const clock = mock.clock(on)
+  on('command.register', () => ({ value: { command: 'workspace' } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('session.cwd', () => ({ value: '/home/bilal/empty' }))
+  on('session.model', () => ({ value: 'claude-opus-5-5' }))
+  on('session.usage', () => ({ value: { startedAt: 0, context: { window: 1_000_000 }, rateLimits: [] } }))
+  on('settings.read', () => ({ value: {} }))
+  on('env.get', () => ({ value: undefined }))
+  on('process.run', () => ({
+    value: {
+      exitCode: 128,
+      stdout: '',
+      stderr: 'fatal: not a git repository (or any parent up to mount point /)',
+      isStdoutTruncated: false,
+      isStderrTruncated: false,
+    },
+  }))
+  let folders: string[] = []
+  on('fs.list', (_, e) => ({
+    value: e.path === '/home/bilal/empty' ? folders.map(name => ({ name, kind: 'dir' as const, size: 0, mtimeMs: 0 })) : [],
+  }))
+  on('ui.log', (_, e) => {
+    throw new Error(String(e.text))
+  })
+  const snaps: WorkspaceSnapshot[] = []
+  on('state.set', async ($, e, next) => {
+    if (e.plugin === 'workspace' && e.key === 'snapshot') snaps.push(e.value as WorkspaceSnapshot)
+    return next(e)
+  })
+
+  await $.session.start({ cwd: '/home/bilal/empty', surface: 'terminal', isInteractive: true })
+  await clock.settle()
+  expect(snaps.at(-1)?.errors).toEqual([])
+  expect(snaps.at(-1)?.git).toBeNull()
+  expect(snaps.at(-1)?.tree).toEqual([{ depth: 0, name: '(empty)', path: '', kind: 'note', isOpen: false }])
+
+  folders = ['docs']
+  await clock.advance(10_000)
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.press({ key: 'd:docs' })
+  await clock.advance(1_000)
+  expect(snaps.at(-1)?.tree).toEqual([
+    { depth: 0, name: 'docs', path: 'docs', kind: 'dir', isOpen: true },
+    { depth: 1, name: '(empty)', path: '', kind: 'note', isOpen: false },
+  ])
+  await ui.unmount()
 })

@@ -78,6 +78,10 @@ async function readDir(
 ): Promise<void> {
   const listed = await $.fs.list(rel === '' ? root : `${root}/${rel}`)
   const entries = sortEntries(listed).filter(entry => !SKIP.has(entry.name))
+  if (entries.length === 0) {
+    const name = listed.length === 0 ? '(empty)' : '(only skipped folders: .git, node_modules …)'
+    rows.push({ depth, name, path: '', kind: 'note', isOpen: false })
+  }
   for (const entry of entries.slice(0, MAX_CHILDREN)) {
     if (rows.length >= MAX_TREE_ROWS) {
       rows.push({ depth, name: '… (list cut here)', path: '', kind: 'note', isOpen: false })
@@ -181,6 +185,10 @@ let lastModel: string | null = null
 let lastDrawn: WorkspaceSnapshot | null = null
 // The last snapshot written, as JSON: an unchanged one is not written again
 let lastWritten = ''
+// A refresh a short dispatch asked for (a ui.render, a press, a tool.call, a turn): the session's
+// 1-second timer runs it on the session.start hook's $, as the short dispatch's $ aborts its calls
+// in flight once that dispatch is abandoned ("$.process.run(git) aborted")
+let isRequested = false
 
 // One refresh at a time; a request during one runs once more afterwards.
 async function refresh($: EngineInterface): Promise<void> {
@@ -222,13 +230,13 @@ async function checkModel($: EngineInterface): Promise<void> {
 async function open($: EngineInterface): Promise<string> {
   // 44 columns: a narrow sidebar; a width the person drags the dock to wins
   const opened = await $.ui.open({ id: PANE, title: TITLE, columns: 44 })
-  void refresh($)
+  isRequested = true
   return opened.isPlaced ? 'Workspace pane opened.' : `Workspace pane is waiting: ${opened.reason}`
 }
 
 async function toggleFolder($: EngineInterface, path: string): Promise<void> {
   await update($, expanded, list => (list.includes(path) ? list.filter(one => one !== path) : [...list, path]))
-  await refresh($)
+  isRequested = true
 }
 
 // Inside tmux, a text file opens read-only in nvim (his LazyVim config) in a popup over 90% of the
@@ -271,6 +279,10 @@ export const register: Register = on => {
     })
     $.clock.every(REFRESH_MS, () => void refresh($))
     $.clock.every(MODEL_CHECK_MS, () => {
+      if (isRequested) {
+        isRequested = false
+        void refresh($)
+      }
       checkModel($).catch(err => $.ui.log(`workspace: model check failed: ${message(err)}`))
     })
     void refresh($)
@@ -279,7 +291,7 @@ export const register: Register = on => {
 
   on('tool.call', async ($, e, next) => {
     const ran = await next(e)
-    void refresh($)
+    isRequested = true
     return ran
   }).catch(($, e, next) => next(e))
 
@@ -289,14 +301,14 @@ export const register: Register = on => {
       const level = String(e.effort)
       if ((await read($, liveEffort)) !== level) {
         await update($, liveEffort, () => level)
-        void refresh($)
+        isRequested = true
       }
     }
     return yield* next(e)
   })
 
   on('turn.complete', async ($, e, next) => {
-    void refresh($)
+    isRequested = true
     return next(e)
   })
 
