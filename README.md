@@ -5,7 +5,7 @@ zsh + zsh4humans + powerlevel10k, tmux, Neovim + LazyVim, and the search tools b
 [search-functions](https://github.com/bilalakbana/search-functions) (ugrep built from source with every
 archive format, ripgrep, ripgrep-all, fzf, fd, bat, delta, ...), with Intel One Mono as the terminal font,
 plus Claude Code's look and extras: fullscreen UI, the Catppuccin theme, the *workspace* side pane (a mod),
-the official plugins and a `format` skill.
+the global `CLAUDE.md` (Bilal's rules for Claude), and the plugins and skills that the Linux PC uses.
 
 The steps below are written so that **Claude Code running inside WSL** can carry them out. A person can
 follow them just as well.
@@ -38,7 +38,7 @@ sudo apt install -y \
   build-essential pkg-config git curl wget ca-certificates unzip zip 7zip xz-utils fontconfig \
   zsh tmux neovim tree-sitter-cli lazygit gh jq tree lsd fd-find bat git-delta nodejs npm python3 \
   libpcre2-dev zlib1g-dev libbz2-dev liblzma-dev liblz4-dev libzstd-dev libbrotli-dev \
-  poppler-utils antiword pandoc libimage-exiftool-perl ffmpeg
+  poppler-utils antiword pandoc libimage-exiftool-perl ffmpeg pipx
 ```
 
 What they are for: `build-essential`, `pkg-config` and the `lib*-dev` packages build ugrep (PCRE2 regex,
@@ -46,7 +46,8 @@ zlib/bzip2/xz/lz4/zstd/brotli for `-z`; 7-Zip support is bundled in ugrep). `pop
 `antiword`, `pandoc` and `libimage-exiftool-perl` are the filters of `ugrep+` (PDF, .doc, .docx/.odt/.epub/.rtf,
 image metadata); `pandoc`, `poppler-utils` and `ffmpeg` are the adapters of `rga`. `tree-sitter-cli`, the C
 compiler and `curl` are required by LazyVim; `lazygit` is optional for it. `git-delta` and `nodejs`/`npm`
-(for git-split-diffs) are used by the git functions of search-functions.
+(for git-split-diffs) are used by the git functions of search-functions. `pipx` installs graphify for
+Claude Code (step 12).
 
 **Check:** `nvim --version | head -1` shows 0.11.2 or newer (Ubuntu 26.04 ships 0.11.6), and
 `fdfind --version; batcat --version; delta --version; tree-sitter --version` all print a version.
@@ -215,16 +216,39 @@ nvim --headless "+Lazy! sync" +qa
 **Check:** `nvim --headless "+checkhealth lazyvim" "+w! /tmp/lazyvim-health.txt" +qa` and read the file:
 there must be no `ERROR` lines (warnings about optional tools are fine).
 
-## 12. Claude Code: theme, workspace pane, plugins, skill
+## 12. Claude Code: theme, workspace pane, CLAUDE.md, plugins, skills
+
+First the skills from other repositories, with the versions of the Linux PC on 2026-10-23. Do this before
+the links below: `graphify install` adds a block to `~/.claude/CLAUDE.md`, and the link step then backs up
+that file and links Bilal's `CLAUDE.md` (the Linux PC has no graphify block in it either).
+
+```bash
+npx -y skills@1.7.4 add vercel-labs/skills --skill find-skills -g -a claude-code -y
+npx -y skills@1.7.4 add addyosmani/agent-skills --skill interview-me --skill spec-driven-development -g -a claude-code -y
+npx -y skills@1.7.4 add blader/humanizer --skill humanizer -g -a claude-code -y
+npx -y skills@1.7.4 add nateherkai/scroll-craft --skill scroll-craft -g -a claude-code -y
+npx -y skills@1.7.4 add remotion-dev/skills -g -a claude-code -y --skill remotion-best-practices \
+  --skill remotion-captions --skill remotion-create --skill remotion-docs --skill remotion-interactivity \
+  --skill remotion-maps --skill remotion-markup --skill remotion-multimedia --skill remotion-render \
+  --skill remotion-saas --skill remotion-studio --skill remotion-upgrade
+pipx install graphifyy==0.9.92
+graphify install --platform claude
+```
+
+**Check:** `ls ~/.claude/skills` shows 18 folders: `find-skills`, `interview-me`, `spec-driven-development`,
+`humanizer`, `scroll-craft`, `graphify` and the 12 `remotion-*` folders.
 
 The side pane (context, limits, git status, folder tree) is the *workspace* mod in `.claude/mods`, a
 folder marketplace called `bilal-mods`; Claude Code reads it straight from that folder. It needs the
-fullscreen UI. Link the mod folder, the theme and the skill into `~/.claude` (same rules as step 8):
+fullscreen UI. Link the mod folder, the theme, the global `CLAUDE.md` and Bilal's own skills (`format`,
+`autopilot`) into `~/.claude` (same rules as step 8). An existing `~/.claude/CLAUDE.md` is backed up:
+tell the user, because it can hold rules for the work computer that they want to keep.
 
 ```bash
 mkdir -p ~/.claude/themes ~/.claude/skills
 cd ~
-for f in .claude/mods .claude/themes/catppuccin-macchiato.json .claude/skills/format; do
+for f in .claude/mods .claude/themes/catppuccin-macchiato.json .claude/CLAUDE.md \
+         .claude/skills/format .claude/skills/autopilot; do
   if [ -L "$f" ]; then
     [ "$(readlink "$f")" = "$HOME/.dot-files/$f" ] || echo "a different link, left alone: $f -> $(readlink "$f")"
     continue
@@ -234,14 +258,21 @@ for f in .claude/mods .claude/themes/catppuccin-macchiato.json .claude/skills/fo
 done
 ```
 
-Fullscreen UI and the theme in `~/.claude/settings.json`, every other key kept (a dated copy is made
-first):
+Settings in `~/.claude/settings.json`, every other key kept (a dated copy is made first): the fullscreen
+UI, the theme, no Claude attribution in commits and PRs (the `CLAUDE.md` forbids it), and the skills that
+start only when the user types their name:
 
 ```bash
 f=~/.claude/settings.json
 [ -f "$f" ] || echo '{}' > "$f"
 cp -- "$f" "$f.bak-$(date +%F-%H%M%S)"
-jq '.tui = "fullscreen" | .theme = "custom:catppuccin-macchiato"' "$f" > "$f.new" && mv -- "$f.new" "$f"
+by_name='["format","graphify","remotion-captions","remotion-create","remotion-docs","remotion-interactivity",
+  "remotion-maps","remotion-markup","remotion-multimedia","remotion-render","remotion-saas","remotion-studio",
+  "remotion-upgrade"]'
+jq --argjson s "$by_name" '.tui = "fullscreen" | .theme = "custom:catppuccin-macchiato"
+  | .attribution = {commit: "", pr: "", sessionUrl: false}
+  | .skillOverrides = ((.skillOverrides // {}) + ($s | map({key: ., value: "user-invocable-only"}) | from_entries))' \
+  "$f" > "$f.new" && mv -- "$f.new" "$f"
 ```
 
 Plugins. A fresh Claude Code knows only its built-in directory, so the official marketplace is added first
@@ -249,19 +280,24 @@ Plugins. A fresh Claude Code knows only its built-in directory, so the official 
 
 ```bash
 claude plugin marketplace add anthropics/claude-plugins-official
+claude plugin marketplace add DietrichGebert/ponytail
+claude plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill
 claude plugin marketplace add ~/.claude/mods
-for p in superpowers context7 claude-code-setup playground security-guidance pyright-lsp frontend-design; do
+for p in context7 claude-code-setup playground pyright-lsp frontend-design; do
   claude plugin install "$p@claude-plugins-official" --scope user
 done
+claude plugin install ponytail@ponytail --scope user
+claude plugin install ui-ux-pro-max@ui-ux-pro-max-skill --scope user
 claude plugin install workspace@bilal-mods --scope user
 ```
 
-`pyright-lsp` only works once `pyright-langserver` is on PATH (`sudo npm install -g pyright`); it is not
-installed on the Linux PC either, so ask the user before installing it.
+`pyright-lsp` only works once `pyright-langserver` is on PATH (`sudo npm install -g pyright`). The Linux
+PC has it; ask the user before installing it.
 
 **Check:** `claude plugin list` shows the eight plugins enabled, `workspace@bilal-mods` with
-`Read from: /home/<user>/.claude/mods/workspace`, and `jq '{tui, theme}' ~/.claude/settings.json` shows
-`fullscreen` and `custom:catppuccin-macchiato`. Then ask the user to quit Claude Code and start it again
+`Read from: /home/<user>/.claude/mods/workspace`, `ls -l ~/.claude/CLAUDE.md` shows a link into
+`~/.dot-files`, and `jq '{tui, theme, attribution, skillOverrides}' ~/.claude/settings.json` shows
+`fullscreen`, `custom:catppuccin-macchiato`, the empty attribution and the 13 skills. Then ask the user to quit Claude Code and start it again
 (the UI mode and the theme apply to new sessions): the Catppuccin colours show, and the pane opens on its
 own in a window at least 144 columns wide, or with `/workspace` at any width. In the pane, a text file
 opens read-only in nvim in a tmux popup; any other file opens in its Windows default app (through
